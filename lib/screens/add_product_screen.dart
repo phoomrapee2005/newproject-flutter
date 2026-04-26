@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -26,12 +27,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _priceController = TextEditingController();
   final _quantityController = TextEditingController();
 
-  String _category = 'เมาส์';
+  String _category = 'Mouse';
   String _condition = 'new';
-  File? _imageFile;
+  XFile? _imageFile;
   bool _isLoading = false;
 
-  final List<String> _categories = ['เมาส์', 'คีย์บอร์ด', 'หูฟัง', 'แผ่นรองเมาส์', 'อื่นๆ'];
+  final List<String> _categories = ['Mouse', 'Keyboard', 'Headphones', 'Mousepad', 'Others'];
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -49,7 +50,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _category = widget.product!.category;
       _condition = widget.product!.condition;
       if (widget.product!.imagePath.isNotEmpty) {
-        _imageFile = File(widget.product!.imagePath);
+        _imageFile = XFile(widget.product!.imagePath);
       }
     }
   }
@@ -71,7 +72,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() {
-        _imageFile = File(image.path);
+        _imageFile = image;
       });
     }
   }
@@ -80,7 +81,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_imageFile == null && widget.product == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเลือกรูปภาพ')),
+        const SnackBar(content: Text('Please select an image')),
       );
       return;
     }
@@ -115,7 +116,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.product == null ? 'เพิ่มสินค้าสำเร็จ' : 'แก้ไขสินค้าสำเร็จ'),
+          content: Text(widget.product == null ? 'Product added successfully' : 'Product updated successfully'),
         ),
       );
     }
@@ -127,7 +128,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'แก้ไขสินค้า' : 'เพิ่มสินค้า'),
+        title: Text(isEdit ? 'Edit Product' : 'Add Product'),
       ),
       body: Form(
         key: _formKey,
@@ -146,7 +147,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 child: _imageFile != null
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(_imageFile!, fit: BoxFit.cover),
+                        child: kIsWeb
+                            ? Image.network(_imageFile!.path, fit: BoxFit.cover)
+                            : Image.file(File(_imageFile!.path), fit: BoxFit.cover),
                       )
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -154,7 +157,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey[600]),
                           const SizedBox(height: 8),
                           Text(
-                            'แตะเพื่อเลือกรูปภาพ',
+                            'Tap to select image',
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ],
@@ -167,11 +170,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'ชื่อสินค้า *',
+                labelText: 'Product Name *',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.shopping_bag),
               ),
-              validator: (v) => v!.isEmpty ? 'กรุณากรอกชื่อสินค้า' : null,
+              validator: (v) => v!.isEmpty ? 'Please enter product name' : null,
             ),
             const SizedBox(height: 16),
 
@@ -182,11 +185,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   child: TextFormField(
                     controller: _sellerNameController,
                     decoration: const InputDecoration(
-                      labelText: 'ชื่อผู้ขาย *',
+                      labelText: 'Seller Name *',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.person),
                     ),
-                    validator: (v) => v!.isEmpty ? 'กรุณากรอกชื่อผู้ขาย' : null,
+                    validator: (v) => v!.isEmpty ? 'Please enter seller name' : null,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -194,11 +197,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   child: TextFormField(
                     controller: _sellerPhoneController,
                     decoration: const InputDecoration(
-                      labelText: 'เบอร์ผู้ขาย *',
+                      labelText: 'Seller Phone *',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.phone),
                     ),
-                    validator: (v) => v!.isEmpty ? 'กรุณากรอกเบอร์ผู้ขาย' : null,
+                    validator: (v) => v!.isEmpty ? 'Please enter seller phone' : null,
                     keyboardType: TextInputType.phone,
                   ),
                 ),
@@ -210,7 +213,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             TextFormField(
               controller: _bannerController,
               decoration: const InputDecoration(
-                labelText: 'แบนเนอร์',
+                labelText: 'Banner',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.flag),
               ),
@@ -221,7 +224,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             DropdownButtonFormField<String>(
               initialValue: _category,
               decoration: const InputDecoration(
-                labelText: 'ประเภท',
+                labelText: 'Category',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.category),
               ),
@@ -234,11 +237,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
             TextFormField(
               controller: _modelNameController,
               decoration: const InputDecoration(
-                labelText: 'ชื่อรุ่น *',
+                labelText: 'Model Name *',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.tag),
               ),
-              validator: (v) => v!.isEmpty ? 'กรุณากรอกชื่อรุ่น' : null,
+              validator: (v) => v!.isEmpty ? 'Please enter model name' : null,
             ),
             const SizedBox(height: 16),
 
@@ -246,13 +249,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
             DropdownButtonFormField<String>(
               initialValue: _condition,
               decoration: const InputDecoration(
-                labelText: 'สภาพสินค้า',
+                labelText: 'Condition',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.info_outline),
               ),
               items: const [
-                DropdownMenuItem(value: 'new', child: Text('มือ 1')),
-                DropdownMenuItem(value: 'used', child: Text('มือ 2')),
+                DropdownMenuItem(value: 'new', child: Text('New')),
+                DropdownMenuItem(value: 'used', child: Text('Used')),
               ],
               onChanged: (v) => setState(() => _condition = v!),
             ),
@@ -265,11 +268,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   child: TextFormField(
                     controller: _priceController,
                     decoration: const InputDecoration(
-                      labelText: 'ราคา *',
+                      labelText: 'Price *',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.attach_money),
                     ),
-                    validator: (v) => v!.isEmpty ? 'กรุณากรอกราคา' : null,
+                    validator: (v) => v!.isEmpty ? 'Please enter price' : null,
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -278,11 +281,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   child: TextFormField(
                     controller: _quantityController,
                     decoration: const InputDecoration(
-                      labelText: 'จำนวน *',
+                      labelText: 'Quantity *',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.inventory),
                     ),
-                    validator: (v) => v!.isEmpty ? 'กรุณากรอกจำนวน' : null,
+                    validator: (v) => v!.isEmpty ? 'Please enter quantity' : null,
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -294,7 +297,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: 'รายละเอียด',
+                labelText: 'Description',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.description),
                 alignLabelWithHint: true,
@@ -316,7 +319,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : Text(
-                      isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มสินค้า',
+                      isEdit ? 'Save Changes' : 'Add Product',
                       style: const TextStyle(fontSize: 18),
                     ),
             ),

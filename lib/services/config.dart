@@ -1,4 +1,4 @@
-/// การตั้งค่าแอปพลิเคชัน
+/// Application Configuration
 class AppConfig {
   // API Configuration
   static const String apiBaseUrl = String.fromEnvironment(
@@ -17,21 +17,21 @@ class AppConfig {
   static const double shippingFeeExpress = 100.0;
 
   // Bank Information
-  static const String bankName = 'กสิกรไทย';
+  static const String bankName = 'Kasikorn Bank';
   static const String bankAccountNumber = '1234567890';
   static const String bankAccountName = 'Click & Clack';
 
   // App Information
   static const String appName = 'Click & Clack';
-  static const String appSubtitle = 'Gaming Gear มือ 1 & มือ 2';
+  static const String appSubtitle = 'Gaming Gear New & Used';
 
   // Product Categories
   static const List<String> categories = [
-    'เมาส์',
-    'คีย์บอร์ด',
-    'หูฟัง',
-    'แผ่นรองเมาส์',
-    'อื่นๆ',
+    'Mouse',
+    'Keyboard',
+    'Headphones',
+    'Mousepad',
+    'Others',
   ];
 
   // Order Status

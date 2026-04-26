@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/cart_provider.dart';
@@ -10,11 +11,11 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'th_TH', symbol: '฿');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: '฿');
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ตะกร้าสินค้า'),
+        title: const Text('Cart'),
       ),
       body: Consumer<CartProvider>(
         builder: (context, cart, _) {
@@ -26,19 +27,19 @@ class CartScreen extends StatelessWidget {
                   Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
-                    'ตะกร้าสินค้าว่างเปล่า',
+                    'Cart is empty',
                     style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'เลือกสินค้าที่คุณต้องการได้เลย',
+                    'Start shopping now!',
                     style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.shopping_bag),
-                    label: const Text('เลือกสินค้า'),
+                    label: const Text('Shop Now'),
                   ),
                 ],
               ),
@@ -64,12 +65,20 @@ class CartScreen extends StatelessWidget {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: item.product.imagePath.isNotEmpty
-                                  ? Image.file(
-                                      File(item.product.imagePath),
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                    )
+                                  ? (kIsWeb
+                                      ? Image.network(
+                                          item.product.imagePath,
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported),
+                                        )
+                                      : Image.file(
+                                          File(item.product.imagePath),
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                        ))
                                   : Container(
                                       width: 80,
                                       height: 80,
@@ -143,7 +152,7 @@ class CartScreen extends StatelessWidget {
                                                 } else {
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     const SnackBar(
-                                                      content: Text('สินค้ามีไม่เพียงพอ'),
+                                                      content: Text('Not enough stock'),
                                                     ),
                                                   );
                                                 }
@@ -164,7 +173,7 @@ class CartScreen extends StatelessWidget {
                                           cart.removeFromCart(item.product.id);
                                         },
                                         icon: const Icon(Icons.delete, color: Colors.red),
-                                        tooltip: 'ลบ',
+                                        tooltip: 'Delete',
                                       ),
                                     ],
                                   ),
@@ -198,11 +207,11 @@ class CartScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'สินค้าทั้งหมด',
+                            'Total Items',
                             style: TextStyle(fontSize: 16),
                           ),
                           Text(
-                            '${cart.itemCount} ชิ้น',
+                            '${cart.itemCount} pcs',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -215,7 +224,7 @@ class CartScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text(
-                            'ราคารวม',
+                            'Subtotal',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                           Text(
@@ -244,7 +253,7 @@ class CartScreen extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                           child: const Text(
-                            'Check Out',
+                            'Checkout',
                             style: TextStyle(fontSize: 18),
                           ),
                         ),

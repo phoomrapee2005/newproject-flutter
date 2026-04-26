@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/product_provider.dart';
@@ -21,7 +22,7 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Click & Clack'),
-            Text('Gaming Gear มือ 1 & มือ 2', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+            Text('Gaming Gear New & Used', style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
           ],
         ),
         actions: [
@@ -33,7 +34,7 @@ class HomeScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
               );
             },
-            tooltip: 'ประวัติการสั่งซื้อ',
+            tooltip: 'Order History',
           ),
           Stack(
             children: [
@@ -45,7 +46,7 @@ class HomeScreen extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const CartScreen()),
                   );
                 },
-                tooltip: 'ตะกร้าสินค้า',
+                tooltip: 'Cart',
               ),
               Consumer<CartProvider>(
                 builder: (context, cart, _) {
@@ -94,12 +95,12 @@ class HomeScreen extends StatelessWidget {
                   Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
-                    'ยังไม่มีสินค้า',
+                    'No products yet',
                     style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'กดปุ่ม + เพื่อเพิ่มสินค้า',
+                    'Press + to add product',
                     style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                   ),
                 ],
@@ -148,7 +149,9 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'th_TH', symbol: '฿');
+    // Note: Kept currency locale th_TH to show Thai Baht symbol correctly if desired,
+    // or en_US if they want USD, but usually it's fine for Baht. I will use en_US and THB.
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: '฿');
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -171,11 +174,17 @@ class _ProductCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   product.imagePath.isNotEmpty
-                      ? Image.file(
-                          File(product.imagePath),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-                        )
+                      ? (kIsWeb
+                          ? Image.network(
+                              product.imagePath,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                            )
+                          : Image.file(
+                              File(product.imagePath),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                            ))
                       : _buildPlaceholder(),
                   Positioned(
                     top: 8,
@@ -187,7 +196,7 @@ class _ProductCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        product.condition == 'new' ? 'มือ 1' : 'มือ 2',
+                        product.condition == 'new' ? 'New' : 'Used',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,

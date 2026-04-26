@@ -4,7 +4,7 @@ import '../models/product.dart';
 import '../models/order.dart';
 
 class ApiService {
-  // เปลี่ยน URL ตาม backend ที่รัน
+  // Change URL based on backend
   static const String baseUrl = 'http://localhost:8080/api';
 
   // Singleton pattern
@@ -16,7 +16,7 @@ class ApiService {
 
   // ==================== PRODUCTS ====================
 
-  /// ดึงสินค้าทั้งหมด
+  /// Fetch all products
   Future<List<Product>> getProducts() async {
     try {
       final response = await _client.get(Uri.parse('$baseUrl/products'));
@@ -33,7 +33,7 @@ class ApiService {
     }
   }
 
-  /// ดึงสินค้าตาม ID
+  /// Fetch product by ID
   Future<Product?> getProduct(String id) async {
     try {
       final response = await _client.get(Uri.parse('$baseUrl/products/$id'));
@@ -47,7 +47,7 @@ class ApiService {
     }
   }
 
-  /// เพิ่มสินค้าใหม่
+  /// Create new product
   Future<bool> createProduct(Product product) async {
     try {
       final response = await _client.post(
@@ -66,7 +66,7 @@ class ApiService {
     }
   }
 
-  /// แก้ไขสินค้า
+  /// Update product
   Future<bool> updateProduct(Product product) async {
     try {
       final response = await _client.put(
@@ -85,7 +85,7 @@ class ApiService {
     }
   }
 
-  /// ลบสินค้า
+  /// Delete product
   Future<bool> deleteProduct(String id) async {
     try {
       final response = await _client.delete(Uri.parse('$baseUrl/products/$id'));
@@ -102,7 +102,7 @@ class ApiService {
 
   // ==================== ORDERS ====================
 
-  /// ดึงออเดอร์ทั้งหมด
+  /// Fetch all orders
   Future<List<Order>> getOrders() async {
     try {
       final response = await _client.get(Uri.parse('$baseUrl/orders'));
@@ -119,7 +119,7 @@ class ApiService {
     }
   }
 
-  /// สร้างออเดอร์ใหม่
+  /// Create new order
   Future<bool> createOrder(Order order) async {
     try {
       final response = await _client.post(
@@ -138,7 +138,7 @@ class ApiService {
     }
   }
 
-  /// ยกเลิกการเชื่อมต่อ
+  /// Close connection
   void dispose() {
     _client.close();
   }

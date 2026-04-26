@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'cart_item.dart';
 import 'product.dart';
 
@@ -33,7 +34,10 @@ class Order {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'items': items.map((item) => item.toMap()).toList(),
+      'items': jsonEncode(items.map((item) => {
+        'product': item.product.toMap(),
+        'quantity': item.quantity,
+      }).toList()),
       'customer_name': customerName,
       'customer_phone': customerPhone,
       'address': address,
@@ -48,9 +52,16 @@ class Order {
   }
 
   factory Order.fromMap(Map<String, dynamic> map) {
+    List<dynamic> itemsList;
+    if (map['items'] is String) {
+      itemsList = jsonDecode(map['items']);
+    } else {
+      itemsList = map['items'] ?? [];
+    }
+
     return Order(
       id: map['id'],
-      items: (map['items'] as List).map((item) => CartItem(
+      items: itemsList.map((item) => CartItem(
         product: Product.fromMap(item['product']),
         quantity: item['quantity'],
       )).toList(),

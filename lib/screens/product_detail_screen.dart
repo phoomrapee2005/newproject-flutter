@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/product.dart';
@@ -14,11 +15,11 @@ class ProductDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'th_TH', symbol: '฿');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: '฿');
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('รายละเอียดสินค้า'),
+        title: const Text('Product Details'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -32,14 +33,14 @@ class ProductDetailScreen extends StatelessWidget {
                 Provider.of<ProductProvider>(context, listen: false).loadProducts();
               });
             },
-            tooltip: 'แก้ไข',
+            tooltip: 'Edit',
           ),
           IconButton(
             icon: const Icon(Icons.delete),
             onPressed: () {
               _showDeleteConfirmation(context);
             },
-            tooltip: 'ลบ',
+            tooltip: 'Delete',
           ),
         ],
       ),
@@ -51,11 +52,17 @@ class ProductDetailScreen extends StatelessWidget {
             AspectRatio(
               aspectRatio: 16 / 9,
               child: product.imagePath.isNotEmpty
-                  ? Image.file(
-                      File(product.imagePath),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
-                    )
+                  ? (kIsWeb
+                      ? Image.network(
+                          product.imagePath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+                        )
+                      : Image.file(
+                          File(product.imagePath),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+                        ))
                   : _buildImagePlaceholder(),
             ),
             Padding(
@@ -81,7 +88,7 @@ class ProductDetailScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          product.condition == 'new' ? 'สินค้ามือ 1' : 'สินค้ามือ 2',
+                          product.condition == 'new' ? 'New' : 'Used',
                           style: const TextStyle(color: Colors.white),
                         ),
                       ),
@@ -107,21 +114,21 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'เหลือ: ${product.quantity} ชิ้น',
+                    'Stock: ${product.quantity} pcs',
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   const Divider(height: 32),
 
                   // Model Name
-                  _buildDetailRow('รุ่น', product.modelName),
-                  _buildDetailRow('แบนเนอร์', product.banner),
-                  _buildDetailRow('ชื่อผู้ขาย', product.sellerName),
-                  _buildDetailRow('เบอร์ผู้ขาย', product.sellerPhone),
+                  _buildDetailRow('Model', product.modelName),
+                  _buildDetailRow('Banner', product.banner),
+                  _buildDetailRow('Seller Name', product.sellerName),
+                  _buildDetailRow('Seller Phone', product.sellerPhone),
                   const Divider(height: 32),
 
                   // Description
                   const Text(
-                    'รายละเอียด',
+                    'Description',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -148,14 +155,14 @@ class ProductDetailScreen extends StatelessWidget {
                             .addToCart(product);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('เพิ่ม ${product.name} ลงตะกร้าแล้ว'),
+                            content: Text('Added ${product.name} to cart'),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
                       }
                     : null,
                 icon: const Icon(Icons.add_shopping_cart),
-                label: const Text('เพิ่มลงตะกร้า'),
+                label: const Text('Add to Cart'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -204,12 +211,12 @@ class ProductDetailScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ยืนยันการลบ'),
-        content: Text('คุณต้องการลบ "${product.name}" ใช่หรือไม่?'),
+        title: const Text('Confirm Delete'),
+        content: Text('Are you sure you want to delete "${product.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('ยกเลิก'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
@@ -218,10 +225,10 @@ class ProductDetailScreen extends StatelessWidget {
               Navigator.pop(context);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ลบสินค้าแล้ว')),
+                const SnackBar(content: Text('Product deleted')),
               );
             },
-            child: const Text('ลบ', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
