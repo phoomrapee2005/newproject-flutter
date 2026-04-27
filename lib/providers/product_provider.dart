@@ -35,6 +35,15 @@ class ProductProvider with ChangeNotifier {
     await loadProducts();
   }
 
+  List<Product> searchProducts(String query) {
+    if (query.isEmpty) return _products;
+    return _products.where((p) => 
+      p.name.toLowerCase().contains(query.toLowerCase()) || 
+      p.modelName.toLowerCase().contains(query.toLowerCase()) ||
+      p.category.toLowerCase().contains(query.toLowerCase())
+    ).toList();
+  }
+
   Product? getProductById(String id) {
     try {
       return _products.firstWhere((p) => p.id == id);

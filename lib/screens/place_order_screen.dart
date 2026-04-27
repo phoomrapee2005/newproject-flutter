@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/cart_provider.dart';
 import '../providers/order_provider.dart';
+import '../providers/product_provider.dart';
 import '../models/order.dart';
 import '../models/cart_item.dart';
 
@@ -40,13 +42,25 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
     });
   }
 
-  void _placeOrder(BuildContext context, CartProvider cartProvider) {
+  Future<void> _placeOrder(BuildContext context, CartProvider cartProvider) async {
     if (!_formKey.currentState!.validate()) return;
     if (cartProvider.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ตะกร้าสินค้าว่างเปล่า')),
+        const SnackBar(content: Text('Cart is empty')),
       );
       return;
+    }
+
+    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    
+    // Verify stock
+    for (var item in cartProvider.items) {
+      if (item.quantity > item.product.quantity) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Insufficient stock for ${item.product.name}')),
+        );
+        return;
+      }
     }
 
     final itemsTotal = cartProvider.totalAmount;
@@ -70,231 +84,260 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
       status: 'pending',
     );
 
-    Provider.of<OrderProvider>(context, listen: false).placeOrder(order);
+    // Update stock in database
+    for (var item in cartProvider.items) {
+      final updatedProduct = item.product.copyWith(
+        quantity: item.product.quantity - item.quantity,
+      );
+      await productProvider.updateProduct(updatedProduct);
+    }
+
+    if (!context.mounted) return;
+    await Provider.of<OrderProvider>(context, listen: false).placeOrder(order);
     cartProvider.clearCart();
 
+    if (context.mounted) {
+      _showSuccessDialog(context, totalPrice);
+    }
+  }
+
+  void _showSuccessDialog(BuildContext context, double totalPrice) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('สั่งซื้อสำเร็จ'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 64),
             const SizedBox(height: 16),
-            const Text('ขอบคุณสำหรับการสั่งซื้อ'),
-            const SizedBox(height: 8),
-            Text('ยอดรวม: ${NumberFormat.currency(locale: "th_TH", symbol: "฿").format(totalPrice)}'),
+            const Icon(Icons.check_circle_rounded, color: Colors.green, size: 80)
+                .animate()
+                .scale(duration: 500.ms, curve: Curves.bounceOut),
+            const SizedBox(height: 24),
+            const Text(
+              'Order Placed!',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1A1C23)),
+            ),
+            const SizedBox(height: 12),
+            const Text('Your gaming gear is on the way.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Total: ${NumberFormat.currency(locale: "en_US", symbol: "฿").format(totalPrice)}',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1A1C23)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                },
+                child: const Text('BACK TO HOME'),
+              ),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back to cart
-              Navigator.pop(context); // Go back to home
-            },
-            child: const Text('ตกลง'),
-          ),
-        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'th_TH', symbol: '฿');
+    final currencyFormat = NumberFormat.currency(locale: 'en_US', symbol: '฿');
     final cartProvider = Provider.of<CartProvider>(context);
     final itemsTotal = cartProvider.totalAmount;
     final totalPrice = itemsTotal + _shippingFee;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Place Order'),
+        title: const Text('Checkout'),
+        centerTitle: true,
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
           children: [
-            // Customer Info Section
-            const Text(
-              'ข้อมูลผู้สั่งซื้อ',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
+            _buildSectionHeader('Shipping Address', Icons.location_on_rounded),
+            const SizedBox(height: 20),
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'ชื่อ-นามสกุล *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+                labelText: 'Full Name',
+                prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
               ),
-              validator: (v) => v!.isEmpty ? 'กรุณากรอกชื่อ' : null,
+              validator: (v) => v!.isEmpty ? 'Please enter your name' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _phoneController,
               decoration: const InputDecoration(
-                labelText: 'เบอร์โทรศัพท์ *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.phone),
+                labelText: 'Phone Number',
+                prefixIcon: Icon(Icons.phone_outlined, size: 20),
               ),
-              validator: (v) => v!.isEmpty ? 'กรุณากรอกเบอร์โทรศัพท์' : null,
+              validator: (v) => v!.isEmpty ? 'Please enter phone number' : null,
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _addressController,
               decoration: const InputDecoration(
-                labelText: 'ที่อยู่ *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.home),
+                labelText: 'Address Detail',
+                prefixIcon: Icon(Icons.home_outlined, size: 20),
                 alignLabelWithHint: true,
               ),
               maxLines: 3,
-              validator: (v) => v!.isEmpty ? 'กรุณากรอกที่อยู่' : null,
+              validator: (v) => v!.isEmpty ? 'Please enter address' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _postalCodeController,
               decoration: const InputDecoration(
-                labelText: 'รหัสไปรษณีย์ *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.local_post_office),
+                labelText: 'Postal Code',
+                prefixIcon: Icon(Icons.pin_drop_outlined, size: 20),
               ),
-              validator: (v) => v!.isEmpty ? 'กรุณากรอกรหัสไปรษณีย์' : null,
+              validator: (v) => v!.isEmpty ? 'Please enter postal code' : null,
               keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
 
-            // Shipping Section
-            const Text(
-              'การจัดส่ง',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Column(
-              children: [
-                RadioListTile<String>(
-                  title: const Text('จัดส่งปกติ (2-3 วัน)'),
-                  subtitle: const Text('ค่าส่ง 50 บาท'),
-                  value: 'normal',
-                  groupValue: _shippingType,
-                  onChanged: (value) => _updateShippingFee(value),
-                ),
-                RadioListTile<String>(
-                  title: const Text('จัดส่งด่วน (1 วัน)'),
-                  subtitle: const Text('ค่าส่ง 100 บาท'),
-                  value: 'express',
-                  groupValue: _shippingType,
-                  onChanged: (value) => _updateShippingFee(value),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Payment Section
-            const Text(
-              'ช่องทางการชำระเงิน',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
+            _buildSectionHeader('Shipping Method', Icons.local_shipping_rounded),
+            const SizedBox(height: 20),
+            _buildShippingOption('normal', 'Standard Delivery', '2-3 days', 50),
+            _buildShippingOption('express', 'Express Delivery', '1 day', 100),
+            
+            const SizedBox(height: 40),
+            _buildSectionHeader('Order Summary', Icons.receipt_long_rounded),
+            const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFF1F3F5)),
               ),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.account_balance, color: Colors.white, size: 32),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'ธนาคารกสิกรไทย',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                            Text(
-                              'Click & Clack',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  _buildSummaryRow('Items Total', currencyFormat.format(itemsTotal)),
+                  const SizedBox(height: 12),
+                  _buildSummaryRow('Shipping Fee', currencyFormat.format(_shippingFee)),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Divider(color: Color(0xFFF1F3F5)),
                   ),
-                  const Divider(height: 24),
-                  const Text(
-                    '1234567890',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'โปรดโอนชำระแล้วแนบหลักฐาน',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Order Summary
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  _buildSummaryRow('ค่าสินค้า', currencyFormat.format(itemsTotal)),
-                  const SizedBox(height: 8),
-                  _buildSummaryRow('ค่าจัดส่ง', currencyFormat.format(_shippingFee)),
-                  const Divider(height: 24),
                   _buildSummaryRow(
-                    'ยอดรวมทั้งหมด',
+                    'Grand Total',
                     currencyFormat.format(totalPrice),
                     isTotal: true,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-
-            // Place Order Button
+            const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => _placeOrder(context, cartProvider),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  backgroundColor: const Color(0xFF1A1C23),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                 ),
                 child: const Text(
-                  'ยืนยันการสั่งซื้อ',
-                  style: TextStyle(fontSize: 18),
+                  'CONFIRM ORDER',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.2),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF4361EE)),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1C23), letterSpacing: -0.5),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShippingOption(String value, String title, String subtitle, double fee) {
+    final isSelected = _shippingType == value;
+    
+    return GestureDetector(
+      onTap: () => _updateShippingFee(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1A1C23) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : const Color(0xFFF1F3F5),
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: Colors.black.withAlpha(20),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            )
+          ] : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
+              color: isSelected ? Colors.white : Colors.grey[400],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title, 
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800, 
+                      color: isSelected ? Colors.white : const Color(0xFF1A1C23)
+                    )
+                  ),
+                  Text(
+                    subtitle, 
+                    style: TextStyle(
+                      color: isSelected ? Colors.white70 : Colors.grey[500], 
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    )
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '฿${fee.toInt()}',
+              style: TextStyle(
+                fontWeight: FontWeight.w900, 
+                fontSize: 16,
+                color: isSelected ? Colors.white : const Color(0xFF4361EE)
+              ),
+            ),
           ],
         ),
       ),
@@ -308,16 +351,17 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: isTotal ? 18 : 16,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            fontSize: isTotal ? 18 : 15,
+            fontWeight: isTotal ? FontWeight.w900 : FontWeight.w500,
+            color: isTotal ? const Color(0xFF1A1C23) : Colors.grey[600],
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: isTotal ? 20 : 16,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isTotal ? Colors.red : null,
+            fontSize: isTotal ? 22 : 16,
+            fontWeight: FontWeight.w900,
+            color: isTotal ? const Color(0xFF1A1C23) : const Color(0xFF1A1C23),
           ),
         ),
       ],

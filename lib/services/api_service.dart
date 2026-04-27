@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/product.dart';
 import '../models/order.dart';
@@ -28,7 +29,7 @@ class ApiService {
       }
       throw Exception('Failed to load products: ${response.statusCode}');
     } catch (e) {
-      print('Error fetching products: $e');
+      debugPrint('Error fetching products: $e');
       return [];
     }
   }
@@ -42,7 +43,7 @@ class ApiService {
       }
       return null;
     } catch (e) {
-      print('Error fetching product: $e');
+      debugPrint('Error fetching product: $e');
       return null;
     }
   }
@@ -58,10 +59,10 @@ class ApiService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return true;
       }
-      print('Failed to create product: ${response.body}');
+      debugPrint('Failed to create product: ${response.body}');
       return false;
     } catch (e) {
-      print('Error creating product: $e');
+      debugPrint('Error creating product: $e');
       return false;
     }
   }
@@ -77,10 +78,10 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       }
-      print('Failed to update product: ${response.body}');
+      debugPrint('Failed to update product: ${response.body}');
       return false;
     } catch (e) {
-      print('Error updating product: $e');
+      debugPrint('Error updating product: $e');
       return false;
     }
   }
@@ -92,10 +93,10 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
       }
-      print('Failed to delete product: ${response.body}');
+      debugPrint('Failed to delete product: ${response.body}');
       return false;
     } catch (e) {
-      print('Error deleting product: $e');
+      debugPrint('Error deleting product: $e');
       return false;
     }
   }
@@ -114,7 +115,7 @@ class ApiService {
       }
       throw Exception('Failed to load orders: ${response.statusCode}');
     } catch (e) {
-      print('Error fetching orders: $e');
+      debugPrint('Error fetching orders: $e');
       return [];
     }
   }
@@ -130,10 +131,10 @@ class ApiService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return true;
       }
-      print('Failed to create order: ${response.body}');
+      debugPrint('Failed to create order: ${response.body}');
       return false;
     } catch (e) {
-      print('Error creating order: $e');
+      debugPrint('Error creating order: $e');
       return false;
     }
   }

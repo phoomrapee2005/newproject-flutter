@@ -19,9 +19,14 @@ class CartProvider with ChangeNotifier {
     );
 
     if (existingIndex >= 0) {
-      _items[existingIndex].quantity += quantity;
+      final newQuantity = _items[existingIndex].quantity + quantity;
+      if (newQuantity <= product.quantity) {
+        _items[existingIndex].quantity = newQuantity;
+      }
     } else {
-      _items.add(CartItem(product: product, quantity: quantity));
+      if (quantity <= product.quantity) {
+        _items.add(CartItem(product: product, quantity: quantity));
+      }
     }
     notifyListeners();
   }
@@ -38,8 +43,10 @@ class CartProvider with ChangeNotifier {
     }
     final index = _items.indexWhere((item) => item.product.id == productId);
     if (index >= 0) {
-      _items[index].quantity = quantity;
-      notifyListeners();
+      if (quantity <= _items[index].product.quantity) {
+        _items[index].quantity = quantity;
+        notifyListeners();
+      }
     }
   }
 

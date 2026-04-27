@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../models/product.dart';
 import '../providers/product_provider.dart';
 
@@ -27,8 +28,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _priceController = TextEditingController();
   final _quantityController = TextEditingController();
 
-  String _category = 'Mouse';
-  String _condition = 'new';
+  late String _category;
+  late String _condition;
   XFile? _imageFile;
   bool _isLoading = false;
 
@@ -38,6 +39,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
   @override
   void initState() {
     super.initState();
+    _category = widget.product?.category ?? 'Mouse';
+    _condition = widget.product?.condition ?? 'new';
+    
     if (widget.product != null) {
       _nameController.text = widget.product!.name;
       _sellerNameController.text = widget.product!.sellerName;
@@ -47,11 +51,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _descriptionController.text = widget.product!.description;
       _priceController.text = widget.product!.price.toString();
       _quantityController.text = widget.product!.quantity.toString();
-      _category = widget.product!.category;
-      _condition = widget.product!.condition;
-      if (widget.product!.imagePath.isNotEmpty) {
-        _imageFile = XFile(widget.product!.imagePath);
-      }
     }
   }
 
@@ -69,7 +68,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
     if (image != null) {
       setState(() {
         _imageFile = image;
@@ -81,12 +83,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_imageFile == null && widget.product == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an image')),
+        const SnackBar(
+          content: Text('Please select a product image'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
 
     setState(() => _isLoading = true);
+
+    final quantity = int.tryParse(_quantityController.text) ?? 0;
+    final price = double.tryParse(_priceController.text) ?? 0.0;
 
     final product = Product(
       id: widget.product?.id ?? const Uuid().v4(),
@@ -98,233 +106,291 @@ class _AddProductScreenState extends State<AddProductScreen> {
       modelName: _modelNameController.text,
       description: _descriptionController.text,
       condition: _condition,
-      quantity: int.parse(_quantityController.text),
-      price: double.parse(_priceController.text),
-      imagePath: _imageFile?.path ?? '',
+      quantity: quantity,
+      price: price,
+      imagePath: _imageFile?.path ?? widget.product?.imagePath ?? '',
       createdAt: widget.product?.createdAt ?? DateTime.now(),
     );
 
-    if (widget.product == null) {
-      await Provider.of<ProductProvider>(context, listen: false).addProduct(product);
-    } else {
-      await Provider.of<ProductProvider>(context, listen: false).updateProduct(product);
-    }
+    try {
+      if (widget.product == null) {
+        await Provider.of<ProductProvider>(context, listen: false).addProduct(product);
+      } else {
+        await Provider.of<ProductProvider>(context, listen: false).updateProduct(product);
+      }
 
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.product == null ? 'Product added successfully' : 'Product updated successfully'),
-        ),
-      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.product == null ? 'Product posted!' : 'Product updated!'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green[700],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.product != null;
+    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: Text(isEdit ? 'Edit Product' : 'Add Product'),
+        title: Text(isEdit ? 'Edit Post' : 'New Post'),
+        centerTitle: true,
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
           children: [
-            // Image Picker
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: _imageFile != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: kIsWeb
-                            ? Image.network(_imageFile!.path, fit: BoxFit.cover)
-                            : Image.file(File(_imageFile!.path), fit: BoxFit.cover),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey[600]),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap to select image',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 16),
+            // Image Picker Card
+            _buildImagePicker(),
+            const SizedBox(height: 32),
 
-            // Product Name
-            TextFormField(
+            _buildSectionHeader('Product Details', Icons.inventory_2_rounded),
+            const SizedBox(height: 20),
+            
+            _buildTextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Product Name *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.shopping_bag),
-              ),
-              validator: (v) => v!.isEmpty ? 'Please enter product name' : null,
+              label: 'Product Name',
+              icon: Icons.shopping_bag_outlined,
+              validator: (v) => v!.isEmpty ? 'Enter name' : null,
             ),
             const SizedBox(height: 16),
-
-            // Seller Info
+            
             Row(
               children: [
                 Expanded(
-                  child: TextFormField(
-                    controller: _sellerNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Seller Name *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                    validator: (v) => v!.isEmpty ? 'Please enter seller name' : null,
+                  child: _buildTextField(
+                    controller: _modelNameController,
+                    label: 'Model',
+                    icon: Icons.tag_rounded,
+                    validator: (v) => v!.isEmpty ? 'Enter model' : null,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextFormField(
-                    controller: _sellerPhoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'Seller Phone *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.phone),
-                    ),
-                    validator: (v) => v!.isEmpty ? 'Please enter seller phone' : null,
-                    keyboardType: TextInputType.phone,
+                  child: _buildDropdown(
+                    value: _category,
+                    label: 'Category',
+                    items: _categories,
+                    onChanged: (v) => setState(() => _category = v!),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Banner
-            TextFormField(
-              controller: _bannerController,
-              decoration: const InputDecoration(
-                labelText: 'Banner',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.flag),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Category
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(
-                labelText: 'Category',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category),
-              ),
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (v) => setState(() => _category = v!),
-            ),
-            const SizedBox(height: 16),
-
-            // Model Name
-            TextFormField(
-              controller: _modelNameController,
-              decoration: const InputDecoration(
-                labelText: 'Model Name *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.tag),
-              ),
-              validator: (v) => v!.isEmpty ? 'Please enter model name' : null,
-            ),
-            const SizedBox(height: 16),
-
-            // Condition
-            DropdownButtonFormField<String>(
-              initialValue: _condition,
-              decoration: const InputDecoration(
-                labelText: 'Condition',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.info_outline),
-              ),
-              items: const [
-                DropdownMenuItem(value: 'new', child: Text('New')),
-                DropdownMenuItem(value: 'used', child: Text('Used')),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _priceController,
+                    label: 'Price',
+                    icon: Icons.payments_outlined,
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v!.isEmpty ? 'Enter price' : null,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _quantityController,
+                    label: 'Quantity',
+                    icon: Icons.stacked_bar_chart_rounded,
+                    keyboardType: TextInputType.number,
+                    validator: (v) => v!.isEmpty ? 'Enter quantity' : null,
+                  ),
+                ),
               ],
+            ),
+            const SizedBox(height: 16),
+
+            _buildDropdown(
+              value: _condition,
+              label: 'Condition',
+              items: const ['new', 'used'],
               onChanged: (v) => setState(() => _condition = v!),
             ),
             const SizedBox(height: 16),
 
-            // Price and Quantity
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _priceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Price *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.attach_money),
-                    ),
-                    validator: (v) => v!.isEmpty ? 'Please enter price' : null,
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextFormField(
-                    controller: _quantityController,
-                    decoration: const InputDecoration(
-                      labelText: 'Quantity *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.inventory),
-                    ),
-                    validator: (v) => v!.isEmpty ? 'Please enter quantity' : null,
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
+            _buildTextField(
+              controller: _descriptionController,
+              label: 'Description',
+              icon: Icons.description_outlined,
+              maxLines: 4,
+            ),
+            
+            const SizedBox(height: 32),
+            _buildSectionHeader('Seller Info', Icons.person_outline_rounded),
+            const SizedBox(height: 20),
+
+            _buildTextField(
+              controller: _sellerNameController,
+              label: 'Seller Name',
+              icon: Icons.badge_outlined,
+              validator: (v) => v!.isEmpty ? 'Enter seller name' : null,
             ),
             const SizedBox(height: 16),
 
-            // Description
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description),
-                alignLabelWithHint: true,
-              ),
-              maxLines: 4,
+            _buildTextField(
+              controller: _sellerPhoneController,
+              label: 'Contact Phone',
+              icon: Icons.phone_android_rounded,
+              keyboardType: TextInputType.phone,
+              validator: (v) => v!.isEmpty ? 'Enter phone' : null,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-            // Save Button
-            ElevatedButton(
-              onPressed: _isLoading ? null : _saveProduct,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+            _buildTextField(
+              controller: _bannerController,
+              label: 'Store Banner/Note',
+              icon: Icons.campaign_outlined,
+            ),
+
+            const SizedBox(height: 40),
+            
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _saveProduct,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  backgroundColor: theme.colorScheme.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
+                      )
+                    : Text(
+                        isEdit ? 'SAVE CHANGES' : 'POST PRODUCT',
+                        style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.2),
+                      ),
               ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      isEdit ? 'Save Changes' : 'Add Product',
-                      style: const TextStyle(fontSize: 18),
-                    ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF4361EE)),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF1A1C23)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImagePicker() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        height: 240,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFF1F3F5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(5),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: _imageFile != null
+              ? (kIsWeb
+                  ? Image.network(_imageFile!.path, fit: BoxFit.cover)
+                  : Image.file(File(_imageFile!.path), fit: BoxFit.cover))
+              : (widget.product?.imagePath.isNotEmpty == true
+                  ? (kIsWeb || widget.product!.imagePath.startsWith('http')
+                      ? Image.network(widget.product!.imagePath, fit: BoxFit.cover)
+                      : Image.file(File(widget.product!.imagePath), fit: BoxFit.cover))
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8F9FA),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.add_a_photo_rounded, size: 40, color: Colors.grey[400]),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Upload Product Photo',
+                          style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    )),
+        ),
+      ),
+    ).animate().fadeIn().scale(begin: const Offset(0.95, 0.95));
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        alignLabelWithHint: true,
+      ),
+    );
+  }
+
+  Widget _buildDropdown({
+    required String value,
+    required String label,
+    required List<String> items,
+    required void Function(String?) onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      items: items.map((i) => DropdownMenuItem(
+        value: i, 
+        child: Text(i[0].toUpperCase() + i.substring(1))
+      )).toList(),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: const Icon(Icons.layers_outlined, size: 20),
       ),
     );
   }
